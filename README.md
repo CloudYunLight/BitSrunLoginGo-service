@@ -35,6 +35,49 @@
 --auto-enc          #自动嗅探 enc
 ```
 
+`--auto-acid` 会依次从入口 URL、HTTP 跳转目标、最终页面 URL、隐藏表单、
+JavaScript 变量和页面链接中查找 `ac_id`。如果没有找到，会安全地回退到配置文件中的
+`meta.acid`，不会因此执行登出。
+
+## :rocket: Linux 一键安装为服务
+
+仓库提供了适用于 systemd Linux 的一键安装器。它不要求系统预装 Go：从源码安装时，
+脚本会把 `go.mod` 指定版本的 Go 工具链下载到临时目录，自动探测 Go 官方源、下载镜像
+以及多个 Go 模块代理，编译结束后删除临时环境。已有 Release 时也可直接下载对应架构的
+预编译包。
+
+```shell
+# 默认读取仓库根目录的 Config.yaml；只复制配置，不会执行登出
+./scripts/install.sh
+
+# 明确指定配置文件
+./scripts/install.sh --config /path/to/Config.yaml
+
+# 跳过源码编译，安装指定 Release
+./scripts/install.sh --release --repository CloudYunLight/BitSrunLoginGo-service
+```
+
+安装器支持 `amd64`、`386`、`arm64`、`armv6`、`armv7` 和 `riscv64`。下载源会按实际
+连通性依次探测；还可以通过 `BITSRUN_MIRRORS` 添加以空格分隔的 GitHub 镜像前缀。
+配置会以 `root:bitsrun`、`0640` 权限保存到 `/etc/bitsrun/Config.yaml`。
+
+服务始终带 `--auto-acid` 启动。它会保留应用自身的守护检测，每运行 24 小时由 systemd
+重建一次进程；`/etc/bitsrun/Config.yaml` 变化时也会自动重启，从而读取新配置。
+常用管理命令如下：
+
+```shell
+bitsrunctl status   # 查看状态
+bitsrunctl logs     # 持续查看日志
+bitsrunctl restart  # 手动重启
+bitsrunctl start    # 启动
+bitsrunctl stop     # 停止
+bitsrunctl config   # 编辑配置并重启
+```
+
+若安装时没有提供配置，脚本只安装示例文件而不启动登录服务；填写账号、密码后执行
+`bitsrunctl start`。登录入口为 `http://10.0.0.55` 时，配置中的 `form.domain` 应填写
+`10.0.0.55`（不带协议和路径）。
+
 Config.yaml 说明：
 
 ```yaml
