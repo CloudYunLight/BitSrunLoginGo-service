@@ -3,6 +3,7 @@ package srun
 import (
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -149,8 +150,51 @@ func (d *Detector) _FollowRedirect(addr *url.URL, conf _FollowRedirectConfig) (*
 }
 
 func (d *Detector) _SearchAcid(query url.Values) (string, bool) {
-	addr := query.Get(`ac_id`)
-	return addr, addr != ""
+	for key, values := range query {
+		if strings.EqualFold(key, "ac_id") && len(values) > 0 && values[0] != "" {
+			return values[0], true
+		}
+	}
+	return "", false
+}
+
+// searchAcidInPage 兼容不同版本深澜页面中的隐藏表单、JavaScript 变量和链接参数。
+func searchAcidInPage(page []byte) (string, bool) {
+	inputReg := regexp.MustCompile(`(?is)<input\b[^>]*>`)
+	attrReg := regexp.MustCompile(`(?i)([a-z_:][-a-z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))`)
+	for _, input := range inputReg.FindAll(page, -1) {
+		attrs := make(map[string]string)
+		for _, match := range attrReg.FindAllSubmatch(input, -1) {
+			value := ""
+			for i := 2; i < len(match); i++ {
+				if len(match[i]) > 0 {
+					value = string(match[i])
+					break
+				}
+			}
+			attrs[strings.ToLower(string(match[1]))] = html.UnescapeString(value)
+		}
+		if strings.EqualFold(attrs["name"], "ac_id") || strings.EqualFold(attrs["id"], "ac_id") {
+			if acid := strings.TrimSpace(attrs["value"]); acid != "" {
+				return acid, true
+			}
+		}
+	}
+
+	patterns := []*regexp.Regexp{
+		regexp.MustCompile(`(?i)["']?ac_id["']?\s*[:=]\s*["']?([a-z0-9._-]+)`),
+		regexp.MustCompile(`(?i)[?&]ac_id=([^&"'<>[:space:]\\]+)`),
+	}
+	page = []byte(html.UnescapeString(string(page)))
+	for _, pattern := range patterns {
+		if match := pattern.FindSubmatch(page); len(match) == 2 {
+			acid, err := url.QueryUnescape(string(match[1]))
+			if err == nil && acid != "" {
+				return acid, true
+			}
+		}
+	}
+	return "", false
 }
 
 // 用于直接获取登录页数据
@@ -246,10 +290,14 @@ func (d *Detector) DetectAcid() (string, error) {
 		if err != nil {
 			return "", err
 		}
+		if acid, ok := d._SearchAcid(baseUrl.Query()); ok {
+			return acid, nil
+		}
 
 		var AcidFound = errors.New("acid found")
 		var acid string
-		_, d.page, err = d._FollowRedirect(baseUrl, _FollowRedirectConfig{
+		var finalRes *http.Response
+		finalRes, d.page, err = d._FollowRedirect(baseUrl, _FollowRedirectConfig{
 			onNextAddr: func(addr *url.URL) error {
 				var ok bool
 				acid, ok = d._SearchAcid(addr.Query())
@@ -266,17 +314,25 @@ func (d *Detector) DetectAcid() (string, error) {
 			}
 			return "", err
 		}
+		if finalRes != nil && finalRes.Request != nil && finalRes.Request.URL != nil {
+			d.pageUrl = finalRes.Request.URL.String()
+			if finalAcid, found := d._SearchAcid(finalRes.Request.URL.Query()); found {
+				return finalAcid, nil
+			}
+		}
 	}
 
-	// 从 html 寻找 acid
-	var reg *regexp.Regexp
-	reg, err := regexp.Compile(`"ac_id".*?value="(.+)"`)
-	if err != nil {
-		return "", err
+	if d.pageUrl != "" {
+		pageUrl, err := url.Parse(d.pageUrl)
+		if err == nil {
+			if acid, ok := d._SearchAcid(pageUrl.Query()); ok {
+				return acid, nil
+			}
+		}
 	}
-	result := reg.FindSubmatch(d.page)
-	if len(result) == 2 {
-		return string(result[1]), nil
+
+	if acid, ok := searchAcidInPage(d.page); ok {
+		return acid, nil
 	}
 
 	return "", ErrAcidCannotFound
