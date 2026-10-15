@@ -1,0 +1,9 @@
+[Unit]
+Description=监测深澜校园网登录配置变化
+
+[Path]
+PathChanged=/etc/bitsrun/Config.yaml
+Unit=bitsrun-config-reload.service
+
+[Install]
+WantedBy=multi-user.target

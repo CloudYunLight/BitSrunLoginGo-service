@@ -1,0 +1,6 @@
+[Unit]
+Description=配置变化后重启深澜校园网登录服务
+
+[Service]
+Type=oneshot
+ExecStart=/bin/systemctl try-restart bitsrun.service
