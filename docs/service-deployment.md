@@ -39,6 +39,14 @@
 bitsrunctl config
 ```
 
+该命令默认使用 `EDITOR` 环境变量指定的编辑器。使用 nano 编辑配置可以执行：
+
+```shell
+EDITOR=nano bitsrunctl config
+```
+
+如果系统提示找不到 nano，请先使用系统的软件包管理器安装 nano。
+
 也可以直接编辑：
 
 ```shell
