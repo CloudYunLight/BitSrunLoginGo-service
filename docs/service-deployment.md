@@ -143,6 +143,7 @@ bitsrunctl stop     # 停止服务
 bitsrunctl restart  # 重启并重新读取配置
 bitsrunctl logs     # 持续查看日志
 bitsrunctl config   # 编辑配置并重启服务
+sudo systemctl disable bitsrun.service #如果不想让它开机自动启动
 ```
 
 如果命令报告权限不足，请使用具有 `sudo` 权限的账号操作。
