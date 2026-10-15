@@ -1,0 +1,28 @@
+[Unit]
+Description=深澜校园网登录守护服务
+Documentation=https://github.com/CloudYunLight/BitSrunLoginGo-service
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=5min
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=bitsrun
+Group=bitsrun
+WorkingDirectory=/var/lib/bitsrun
+ExecStart=/usr/local/bin/bitsrun --config=/etc/bitsrun/Config.yaml --auto-acid
+Restart=always
+RestartSec=10s
+# 每天重建一次进程，重新读取配置并清理长期运行状态。
+RuntimeMaxSec=1d
+TimeoutStopSec=20s
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/bitsrun
+
+[Install]
+WantedBy=multi-user.target

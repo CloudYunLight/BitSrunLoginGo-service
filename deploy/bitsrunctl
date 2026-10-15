@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SERVICE="bitsrun.service"
+CONFIG="/etc/bitsrun/Config.yaml"
+
+run_root() {
+    if [[ ${EUID} -eq 0 ]]; then
+        "$@"
+    elif command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+    else
+        echo "该操作需要 root 权限，且系统未安装 sudo。" >&2
+        exit 1
+    fi
+}
+
+usage() {
+    cat <<'EOF'
+用法: bitsrunctl <命令>
+
+命令:
+  status   查看服务状态
+  start    启动服务
+  stop     停止服务
+  restart  重启服务并重新读取配置
+  logs     持续查看服务日志
+  config   编辑配置并重启服务
+EOF
+}
+
+case "${1:-status}" in
+    status)
+        systemctl status "${SERVICE}" --no-pager
+        ;;
+    start|stop|restart)
+        run_root systemctl "$1" "${SERVICE}"
+        systemctl status "${SERVICE}" --no-pager
+        ;;
+    logs)
+        run_root journalctl -u "${SERVICE}" -f
+        ;;
+    config)
+        run_root "${EDITOR:-vi}" "${CONFIG}"
+        run_root systemctl restart "${SERVICE}"
+        ;;
+    help|-h|--help)
+        usage
+        ;;
+    *)
+        echo "未知命令: $1" >&2
+        usage >&2
+        exit 2
+        ;;
+esac

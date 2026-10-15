@@ -1,0 +1,80 @@
+form:
+  # 校园网登录入口，只填写主机名或 IP，不要附加 http://、https:// 或路径。
+  domain: 10.0.0.55
+  # 校园网账号。配置文件含有凭据，安装器会将其权限限制为 root:bitsrun、0640。
+  username: ""
+  # 运营商后缀，例如 cmcc；账号没有 @ 后缀时保持空字符串。
+  user_type: ""
+  # 校园网密码。请保留引号，避免 #、: 等字符被 YAML 当成语法。
+  password: ""
+
+# 深澜协议参数。除 acid 外，一般保持学校登录页面所使用的默认值。
+meta:
+  "n": "200" # 加密校验参数 n
+  type: "1" # 加密校验参数 type
+  # systemd 服务会启用自动探测；这里的值仅在自动探测失败时作为回退。
+  acid: "8"
+  enc: srun_bx1 # 信息字段的编码版本，可通过 --auto-enc 自动探测
+  os: Windows 10 # 上报给认证服务器的操作系统名称
+  name: windows # 上报给认证服务器的设备类型
+  info_prefix: SRBX1 # info 加密字段的前缀；多数深澜环境使用 SRBX1
+  double_stack: false # IPv4/IPv6 双栈认证；不确定时保持 false
+
+settings:
+  # 网络请求和网卡设置。
+  basic:
+    https: false # 访问认证 API 时是否使用 HTTPS
+    skip_cert_verify: false # 是否跳过 HTTPS 证书校验；仅排障时临时开启
+    timeout: 5 # 单次网络请求超时，单位为秒
+    interfaces: "" # 多网卡名称正则；留空表示使用默认网卡
+    interfaces_interval: 0 # 多网卡依次登录的间隔，单位为秒
+    dns_server: "" # 自定义 DNS 服务器 IP；留空使用系统 DNS
+
+  # 应用内置的在线守护检测。systemd 还会负责异常恢复和每日重建进程。
+  guardian:
+    enable: true # 持续检测在线状态并在掉线后重新登录
+    duration: 300 # 两次在线检测的间隔，单位为秒
+
+  # 登录失败时的退避重试设置，避免认证服务器不可达时高频请求。
+  backoff:
+    enable: true # 是否启用退避重试
+    max_retries: 3 # 单轮最大重试次数；0 表示持续重试
+    initial_duration: 2 # 首次重试等待时间，单位为秒
+    max_duration: 60 # 单次等待上限，单位为秒
+    exponent_factor: 1 # 指数增长因子
+    inter_const_factor: 0 # 公式中的内常数，单位为秒
+    outer_const_factor: 0 # 公式中的外常数，单位为秒
+
+  # 默认由 journald 收集日志，可通过 bitsrunctl logs 查看。
+  log:
+    debug_level: false # 输出详细调试信息，排查认证问题时可临时开启
+    write_file: false # 是否额外写入日志文件
+    log_path: /var/lib/bitsrun/ # 文件日志目录，服务用户对此目录有写权限
+    log_name: "" # 自定义日志文件名；留空使用程序默认名称
+
+  # 可选：登录成功后更新内网 IP 的 DNS 记录；不使用时保持关闭。
+  ddns:
+    enable: false
+    ttl: 600 # DNS 记录 TTL，单位为秒
+    domain: www.example.com # 要更新的域名，不是认证服务器地址
+    provider: cloudflare # 支持 cloudflare、aliyun、dnspod
+    config:
+      zone: "" # Cloudflare Zone ID；其他服务商字段参见 README
+      token: "" # Cloudflare API Token，关闭 DDNS 时保持为空
+
+  # 可选：从指定 HTTP 地址模拟浏览器跳转到认证页。
+  # 直连 10.0.0.55 已能探测 ac_id 时通常无需开启。
+  reality:
+    enable: false
+    addr: http://10.0.0.55
+
+  # 所有认证 HTTP 请求附带的自定义请求头。
+  custom_header:
+    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+
+  # 可选：按网卡覆盖 form 中的登录参数，未设置的字段继承全局值。
+  # interface_forms:
+  #   eth1:
+  #     username: "另一账号"
+  #     password: "另一密码"
+  #     user_type: ""
